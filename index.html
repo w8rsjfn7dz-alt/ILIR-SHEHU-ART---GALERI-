@@ -4,8 +4,7 @@ const $=id=>document.getElementById(id);let cat='all',art=[];
 function render(){const tr=t[$('lang').value];for(const k of ['heading','intro','empty','contact','contactdesc'])$(k).textContent=tr[k];document.querySelectorAll('[data-cat]').forEach(b=>{b.textContent=tr[b.dataset.cat];b.classList.toggle('active',b.dataset.cat===cat)});$('gallery').replaceChildren();const list=art.filter(a=>cat==='all'||a.cat===cat);$('empty').style.display=list.length?'none':'block';for(const a of list){const box=document.createElement('div');box.className='art';const img=document.createElement('img');img.src=a.src;img.alt=a.title;img.onclick=()=>{$('large').src=a.src;$('viewer').style.display='flex'};const p=document.createElement('p');p.textContent=a.title+' · '+tr[a.cat];box.append(img,p);$('gallery').append(box)}}
 document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{cat=b.dataset.cat;render()});$('lang').onchange=render;$('close').onclick=()=>$('viewer').style.display='none';$('viewer').onclick=e=>{if(e.target===$('viewer'))$('viewer').style.display='none'};render();
 </script><script type="module">
-import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const db=createClient('https://ihghchzhknjtrzawnhdt.supabase.co','sb_publishable_i2GBw8vT5HFAGHxI4m8fUQ_e5tTMOEg');
+let db=null;
 const $=id=>document.getElementById(id);
 const panel=document.createElement('section');panel.className='panel';panel.innerHTML='<h2>Menaxho fotografitë</h2><div id="loginArea"><input id="artEmail" type="email" placeholder="Email"><input id="artPassword" type="password" placeholder="Fjalëkalimi"><button id="artLogin">Hyr</button></div><div id="artControls" class="hide"><p><button id="artLogout">Dil</button></p><input id="artTitle" placeholder="Titulli i veprës"><select id="artCategory"><option value="sculpture">Skulpturë</option><option value="painting">Pikturë</option><option value="drawing">Vizatim</option></select><input id="artPhoto" type="file" accept="image/*"><button id="artPublish">Shto foto</button><div id="artManage"></div></div><p id="artStatus" role="status"></p>';
 document.querySelector('main').append(panel);
@@ -14,8 +13,16 @@ const status=s=>$('artStatus').textContent=s;
 async function refresh(){const {data,error}=await db.from('art_studio_artworks').select('*').order('created_at',{ascending:false});if(error){status(error.message);return}publicArt=(data||[]).map(a=>({title:a.title,cat:a.category,src:db.storage.from('art-studio').getPublicUrl(a.image_path).data.publicUrl,id:a.id,path:a.image_path,owner:a.owner_id}));art=[...publicArt];render();manage()}
 function manage(){$('artManage').replaceChildren();for(const a of publicArt.filter(a=>a.owner===user?.id)){const p=document.createElement('p');p.textContent=a.title+' ';const b=document.createElement('button');b.textContent='Fshi';b.onclick=async()=>{if(!confirm('Ta fshij fotografinë nga galeria publike?'))return;const {error}=await db.from('art_studio_artworks').delete().eq('id',a.id);if(error){status(error.message);return}await db.storage.from('art-studio').remove([a.path]);await refresh()};p.append(b);$('artManage').append(p)}}
 async function sync(){const {data:{user:u}}=await db.auth.getUser();user=u;$('loginArea').classList.toggle('hide',!!u);$('artControls').classList.toggle('hide',!u);manage()}
-$('artLogin').onclick=async()=>{status('Duke kontrolluar hyrjen...');try{const {error}=await db.auth.signInWithPassword({email:$('artEmail').value.trim(),password:$('artPassword').value});if(error)status(error.message);else{status('Hyrja u krye.');await sync()}}catch(e){status('Gabim lidhjeje: '+e.message)}};
+$('artLogin').onclick=async()=>{status('Duke kontrolluar hyrjen...');if(!db){status('Lidhja me Supabase nuk është gati. Rifresko faqen.');return}try{const {error}=await db.auth.signInWithPassword({email:$('artEmail').value.trim(),password:$('artPassword').value});if(error)status(error.message);else{status('Hyrja u krye.');await sync()}}catch(e){status('Gabim lidhjeje: '+e.message)}};
 $('artLogout').onclick=async()=>{await db.auth.signOut();await sync()};
 $('artPublish').onclick=async()=>{if(!user)return;const file=$('artPhoto').files[0],title=$('artTitle').value.trim();if(!file||!title){status('Vendos titullin dhe fotografinë.');return}if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)||file.size>10485760){status('Zgjidh JPG, PNG, WEBP ose GIF deri në 10 MB.');return}const ext=file.name.split('.').pop().toLowerCase();const path=user.id+'/'+crypto.randomUUID()+'.'+ext;status('Duke ngarkuar...');const {error:e}=await db.storage.from('art-studio').upload(path,file,{contentType:file.type});if(e){status(e.message);return}const {error:d}=await db.from('art_studio_artworks').insert({title,category:$('artCategory').value,image_path:path,owner_id:user.id});if(d){await db.storage.from('art-studio').remove([path]);status(d.message);return}$('artPhoto').value='';$('artTitle').value='';status('Fotografia u publikua.');await refresh()};
-try{await sync();await refresh()}catch(e){status('Gabim gjatë ngarkimit: '+e.message)}
+status('Duke lidhur galerinë...');
+try {
+ let mod;
+ try { mod=await import('https://esm.sh/@supabase/supabase-js@2'); }
+ catch(firstError) { mod=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'); }
+ db=mod.createClient('https://ihghchzhknjtrzawnhdt.supabase.co','sb_publishable_i2GBw8vT5HFAGHxI4m8fUQ_e5tTMOEg');
+ status('Hyrja është gati.');
+ await sync();await refresh();
+} catch(e) { status('Lidhja nuk u ngarkua: '+e.message); }
 </script></body></html>
