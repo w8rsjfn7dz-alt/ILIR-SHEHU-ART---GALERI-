@@ -37,7 +37,7 @@ async function request(path,opts={}){
  return data;
 }
 function imgUrl(item){return item.image_path?URL_BASE+'/storage/v1/object/public/'+BUCKET+'/'+item.image_path.split('/').map(encodeURIComponent).join('/'):''}
-function render(){const l=words[$('lang').value];for(const k of ['heading','subtitle','galleryTitle','orderTitle','orderText','adminTitle','adminInfo'])$(k).textContent=l[k];document.querySelectorAll('[data-cat]').forEach(b=>b.classList.toggle('active',b.dataset.cat===cat));const g=$('gallery');g.replaceChildren();const visible=artworks.filter(a=>cat==='all'||String(a.category||a.type||'').toLowerCase()===cat.toLowerCase());$('galleryInfo').textContent=cloudError?l.unavailable:visible.length?'':l.empty;for(const a of visible){const url=imgUrl(a);if(!url)continue;const card=document.createElement('article');card.className='art';const im=document.createElement('img');im.src=url;im.loading='lazy';im.alt=String(a.title||'Punim artistik');im.onclick=()=>{$('large').src=url;$('lightbox').style.display='flex'};card.append(im);const p=document.createElement('p');p.textContent=String(a.title||a.category||'');card.append(p);if(session){const pos=artworks.indexOf(a);const up=document.createElement('button');up.textContent='↑';up.title='Zhvendos më lart';up.setAttribute('aria-label','Zhvendos më lart');up.disabled=pos===0;up.onclick=()=>moveArt(a,-1);card.append(up);const down=document.createElement('button');down.textContent='↓';down.title='Zhvendos më poshtë';down.setAttribute('aria-label','Zhvendos më poshtë');down.disabled=pos===artworks.length-1;down.onclick=()=>moveArt(a,1);card.append(down);const b=document.createElement('button');b.textContent='Fshi';b.onclick=()=>removeArt(a);card.append(b)}g.append(card)}}
+function render(){const l=words[$('lang').value];for(const k of ['heading','subtitle','galleryTitle','orderTitle','orderText','adminTitle','adminInfo'])$(k).textContent=l[k];document.querySelectorAll('[data-cat]').forEach(b=>b.classList.toggle('active',b.dataset.cat===cat));const g=$('gallery');g.replaceChildren();const visible=artworks.filter(a=>cat==='all'||String(a.category||a.type||'').toLowerCase()===cat.toLowerCase());$('galleryInfo').textContent=cloudError?l.unavailable:visible.length?'':l.empty;for(const a of visible){const url=imgUrl(a);if(!url)continue;const card=document.createElement('article');card.className='art';const im=document.createElement('img');im.src=url;im.loading='lazy';im.alt=String(a.title||'Punim artistik');im.onclick=()=>{$('large').src=url;$('lightbox').style.display='flex'};card.append(im);const p=document.createElement('p');p.textContent=String(a.title||a.category||'');card.append(p);if(session){const pos=artworks.indexOf(a);const up=document.createElement('button');up.textContent='↑';up.title='Zhvendos më lart';up.setAttribute('aria-label','Zhvendos më lart');up.disabled=pos===0;up.onclick=()=>moveArt(a,-1);card.append(up);const down=document.createElement('button');down.textContent='↓';down.title='Zhvendos më poshtë';down.setAttribute('aria-label','Zhvendos më poshtë');down.disabled=pos===artworks.length-1;down.onclick=()=>moveArt(a,1);card.append(down);const rename=document.createElement('button');rename.textContent='Riemërto';rename.onclick=()=>renameArt(a);card.append(rename);const b=document.createElement('button');b.textContent='Fshi';b.onclick=()=>removeArt(a);card.append(b)}g.append(card)}}
 let movingArt=false;
 async function moveArt(a,step){
  if(!session||movingArt)return;
@@ -127,6 +127,19 @@ $('upload').onclick=async()=>{
  msg(done+' nga '+files.length+' fotografi u ruajtën.'+(errors.length?' Gabime: '+errors.slice(0,3).join('; '):'')+(cloudError?' Galeria nuk u rifreskua.':''),!!errors.length||!!cloudError);
  btn.disabled=false;
 };
+async function renameArt(a){
+ if(!session)return;
+ const oldTitle=String(a.title||'');
+ const next=prompt('Emri i ri i punimit:',oldTitle);
+ if(next===null)return;
+ const title=next.trim();
+ if(!title){msg('Emri nuk mund të jetë bosh.',true);return}
+ if(title===oldTitle)return;
+ try{
+  await request('/rest/v1/'+TABLE+'?id=eq.'+encodeURIComponent(a.id),{method:'PATCH',auth:true,headers:{Prefer:'return=representation'},body:JSON.stringify({title})});
+  await refresh();msg('Emri i punimit u ndryshua.');
+ }catch(e){msg('Riemërtimi dështoi: '+e.message,true)}
+}
 async function removeArt(a){
  if(!session||!confirm('Ta fshij këtë punim nga galeria?'))return;
  try{
