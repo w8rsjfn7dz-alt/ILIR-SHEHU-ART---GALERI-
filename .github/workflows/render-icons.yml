@@ -1,0 +1,33 @@
+name: Render crystal app icons
+on:
+  push:
+    paths:
+      - '.github/workflows/render-icons.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  icons:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install cairosvg
+      - name: Render existing crystal SVG to iPhone and PWA icons
+        run: |
+          python - <<'PY'
+          import cairosvg
+          for name, size in [('apple-touch-icon.png',180),('icon-192.png',192),('icon-512.png',512)]:
+              cairosvg.svg2png(url='icon-crystal.svg',write_to=name,output_width=size,output_height=size)
+          PY
+      - name: Commit icon files only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apple-touch-icon.png icon-192.png icon-512.png
+          if ! git diff --cached --quiet; then
+            git commit -m "Render crystal green gold ILIR SHEHU app icons"
+            git push
+          fi
