@@ -1,0 +1,34 @@
+name: Restore artistic background
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-background.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract and optimize original background
+        run: |
+          python3 - <<'PY'
+          import subprocess,re,base64,io
+          from PIL import Image,ImageEnhance
+          source=subprocess.check_output(['git','show','9e2a3716f1406e4c400ee1ea2519acfda75607ec:index.html']).decode()
+          encoded=re.search(r'data:image/jpeg;base64,([^"]+)',source).group(1)
+          im=Image.open(io.BytesIO(base64.b64decode(encoded))).convert('RGB')
+          im.thumbnail((1600,1600))
+          im=ImageEnhance.Contrast(im).enhance(1.12)
+          im=ImageEnhance.Sharpness(im).enhance(1.15)
+          im.save('art-background.jpg',quality=85,optimize=True)
+          PY
+      - name: Commit restored background only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add art-background.jpg
+          git diff --cached --quiet || (git commit -m "Restore original artistic background as optimized image" && git push)
